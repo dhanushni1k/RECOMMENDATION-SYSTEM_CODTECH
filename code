@@ -1,0 +1,72 @@
+pip install numpy pandas scikit-surprise matplotlib
+
+# Import necessary libraries
+import pandas as pd
+import numpy as np
+from surprise import Dataset, Reader, SVD, accuracy
+from surprise.model_selection import train_test_split
+import matplotlib.pyplot as plt
+
+# Step 1: Load dataset (For simplicity, we use the 'MovieLens' dataset)
+# You can download MovieLens dataset from https://grouplens.org/datasets/movielens/
+
+# Load the dataset using pandas
+url = 'https://raw.githubusercontent.com/justmarkham/DAT8/master/data/u.data'
+columns = ['user_id', 'item_id', 'rating', 'timestamp']
+df = pd.read_csv(url, sep='\t', names=columns)
+
+# Step 2: Prepare the data for collaborative filtering
+reader = Reader(rating_scale=(1, 5))  # Define rating scale
+
+# Create a Surprise dataset from the pandas dataframe
+data = Dataset.load_from_df(df[['user_id', 'item_id', 'rating']], reader)
+
+# Step 3: Split data into training and test sets
+trainset, testset = train_test_split(data, test_size=0.2)
+
+# Step 4: Use Matrix Factorization (SVD) for Collaborative Filtering
+model = SVD()
+
+# Train the model
+model.fit(trainset)
+
+# Step 5: Make predictions on the test set
+predictions = model.test(testset)
+
+# Step 6: Evaluate the results
+# We will use Root Mean Squared Error (RMSE) as the evaluation metric
+rmse = accuracy.rmse(predictions)
+print(f'RMSE: {rmse}')
+
+# Step 7: Generate top-N recommendations
+def get_top_n(predictions, n=10):
+    # First map the predictions to each user.
+    top_n = {}
+    for uid, iid, true_r, est, _ in predictions:
+        if uid not in top_n:
+            top_n[uid] = []
+        top_n[uid].append((iid, est))
+
+    # Then sort the predictions for each user and get the top-N
+    for uid, user_ratings in top_n.items():
+        user_ratings.sort(key=lambda x: x[1], reverse=True)
+        top_n[uid] = user_ratings[:n]
+
+    return top_n
+
+top_n = get_top_n(predictions, n=10)
+
+# Step 8: Display top-N recommendations for a specific user
+user_id = 1
+print(f'Top 10 recommendations for user {user_id}:')
+for item_id, rating in top_n[user_id]:
+    print(f'Item {item_id}, Estimated Rating: {rating}')
+
+# Step 9: Visualization of the performance
+# Plotting RMSE vs. different models or training sizes can be done
+plt.plot([rmse], label="SVD Model")
+plt.xlabel('Model')
+plt.ylabel('RMSE')
+plt.title('Recommendation System Evaluation')
+plt.legend()
+plt.show()
